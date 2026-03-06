@@ -1,0 +1,19 @@
+include:
+  - ./RabbitMQ/docker-compose.yaml
+
+
+services:
+  app:
+    build: .
+    container_name: app
+    hostname: app
+    ports:
+      - 8000:8000
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    networks:
+      - network-gateway
+    restart: on-failure
+
+# docker exec -it app python3 generate.py
+# docker exec -it app python3 client.py

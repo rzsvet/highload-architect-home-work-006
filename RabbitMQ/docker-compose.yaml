@@ -1,0 +1,105 @@
+
+services:
+  # --- HAProxy ---
+  haproxy-rabbitmq:
+    image: haproxy:3.3.4-alpine3.23
+    container_name: haproxy-rabbitmq
+    hostname: haproxy-rabbitmq
+    networks:
+      - network-db-rabbitmq
+      - network-gateway
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "8404:8404"
+    volumes:
+      - ./haproxy-rabbitmq/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    restart: unless-stopped
+
+  # --- Нода 1 (Мастер) ---
+  db-rabbitmq-node-01:
+    image: rabbitmq:4.2.4-management-alpine
+    container_name: db-rabbitmq-node-01
+    hostname: db-rabbitmq-node-01
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie_for_cluster"
+      RABBITMQ_NODENAME: rabbit@db-rabbitmq-node-01
+    volumes:
+      - ./rabbitmq/init.sh:/init.sh:ro
+      - db-rabbitmq-node-01:/var/lib/rabbitmq
+    entrypoint: ["/bin/bash", "/init.sh"]
+    networks:
+      - network-db-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # --- Нода 2 (Воркер) ---
+  db-rabbitmq-node-02:
+    image: rabbitmq:4.2.4-management-alpine
+    container_name: db-rabbitmq-node-02
+    hostname: db-rabbitmq-node-02
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie_for_cluster"
+      RABBITMQ_NODENAME: rabbit@db-rabbitmq-node-02
+    volumes:
+      - ./rabbitmq/init.sh:/init.sh:ro
+      - db-rabbitmq-node-02:/var/lib/rabbitmq
+    entrypoint: ["/bin/bash", "/init.sh"]
+    depends_on:
+      db-rabbitmq-node-01:
+        condition: service_healthy
+    networks:
+      - network-db-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # --- Нода 3 (Воркер) ---
+  db-rabbitmq-node-03:
+    image: rabbitmq:4.2.4-management-alpine
+    container_name: db-rabbitmq-node-03
+    hostname: db-rabbitmq-node-03
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie_for_cluster"
+      RABBITMQ_NODENAME: rabbit@db-rabbitmq-node-03
+    volumes:
+      - ./rabbitmq/init.sh:/init.sh:ro
+      - db-rabbitmq-node-03:/var/lib/rabbitmq
+    entrypoint: ["/bin/bash", "/init.sh"]
+    depends_on:
+      db-rabbitmq-node-01:
+        condition: service_healthy
+    networks:
+      - network-db-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+networks:
+  network-gateway:
+    # ipam:
+    #   config:
+    #     - subnet: 172.21.0.0/28
+  network-db-rabbitmq:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.21.0.16/28
+
+volumes:
+  db-rabbitmq-node-01:
+  db-rabbitmq-node-02:
+  db-rabbitmq-node-03:
