@@ -3,17 +3,149 @@ include:
 
 
 services:
-  app:
-    build: .
-    container_name: app
-    hostname: app
-    ports:
-      - 8000:8000
+
+  api-service-1:
+    build:
+      context: ./services/api-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  api-service-2:
+    build:
+      context: ./services/api-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  api-service-3:
+    build:
+      context: ./services/api-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  processor-service-1:
+    build:
+      context: ./services/processor-service
+      dockerfile: Dockerfile
     environment:
       RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
     networks:
+      - network-app-services
       - network-gateway
-    restart: on-failure
+
+  processor-service-2:
+    build:
+      context: ./services/processor-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    networks:
+      - network-app-services
+      - network-gateway
+
+  processor-service-3:
+    build:
+      context: ./services/processor-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    networks:
+      - network-app-services
+      - network-gateway
+
+  ws-service-1:
+    build:
+      context: ./services/ws-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  ws-service-2:
+    build:
+      context: ./services/ws-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  ws-service-3:
+    build:
+      context: ./services/ws-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@haproxy-rabbitmq:5672/"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - network-app-services
+      - network-gateway
+
+  generator-service:
+    build:
+      context: ./services/generator-service
+      dockerfile: Dockerfile
+    environment:
+      API_URL: "http://gateway/posts/"
+    networks:
+      - network-public
+
+  client:
+    build:
+      context: ./services/client
+      dockerfile: Dockerfile
+    environment:
+      WS_URL: "ws://gateway/ws/feed/1"
+    networks:
+      - network-public
+
+  gateway:
+    image: nginx:1.29-alpine3.23
+    volumes:
+      - ./Nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:80"
+    networks:
+      - network-app-services
+      - network-gateway
+      - network-public
+
+networks:
+
+  network-public:
+    ipam:
+      config:
+        - subnet: 172.21.0.64/28
+
+  network-gateway:
+    ipam:
+      config:
+        - subnet: 172.21.0.0/28
+
+  network-app-services:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.21.0.32/28
 
 # docker exec -it app python3 generate.py
 # docker exec -it app python3 client.py
